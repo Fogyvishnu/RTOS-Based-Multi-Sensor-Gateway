@@ -1,0 +1,31 @@
+# Build directories
+build/
+build-test/
+.pio/
+bin/
+obj/
+
+# Compiled objects
+*.o
+*.obj
+*.elf
+*.bin
+*.hex
+*.map
+*.d
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+venv/
+.env/
