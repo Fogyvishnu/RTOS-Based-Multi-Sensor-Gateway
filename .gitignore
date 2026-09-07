@@ -29,3 +29,9 @@ __pycache__/
 .pytest_cache/
 venv/
 .env/
+
+# Internal specs & prompts
+AGENT.md
+AGENTS.md
+[Aa][Gg][Ee][Nn][Tt]*.md
+
