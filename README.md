@@ -21,7 +21,7 @@ The gateway acquires data from an **MPU6050** 6-DOF IMU (I2C), **DHT11** environ
    - Exponentially Weighted Moving Average (EWMA) digital low-pass filtering for analog ADC sampling.
 3. **Resilient Fault Management & Self-Healing**:
    - **I2C 9-Clock Bus Recovery**: Detects I2C bus lockups (e.g. slave holding SDA low) and executes an automatic 9-clock bus-clearing sequence to restore communication without rebooting the system.
-   - **Degraded Operating Modes**: Dynamic state machine (`NORMAL` $\rightarrow$ `DEGRADED` $\rightarrow$ `CRITICAL`). If one sensor fails, the gateway continues streaming healthy sensors with explicit error telemetry.
+   - **Degraded Operating Modes**: Dynamic state machine (`NORMAL` → `DEGRADED` → `CRITICAL`). If one sensor fails, the gateway continues streaming healthy sensors with explicit error telemetry.
    - **Multi-Task Watchdog Matrix**: A dedicated supervisor task monitors execution heartbeats from all worker tasks. The hardware Independent Watchdog (`IWDG`) is kicked *only* if all critical tasks report healthy within their deadlines.
    - **Interactive Fault Injection**: Test fault tolerance live during interviews or demos using CLI commands (`inject mpu`, `inject dht`, `inject pot`, `inject task`).
 4. **Comprehensive Educational Guide**:
@@ -38,37 +38,37 @@ The gateway acquires data from an **MPU6050** 6-DOF IMU (I2C), **DHT11** environ
 
 ```mermaid
 graph TD
-    subgraph Hardware Layer
-        MPU[MPU6050 IMU - I2C1]
-        DHT[DHT11 Sensor - GPIO]
-        POT[Potentiometer - ADC1]
-        UART_HW[ST-Link VCP - USART2 DMA]
-        WDT_HW[Hardware IWDG]
+    subgraph Hardware_Layer["Hardware Layer"]
+        MPU["MPU6050 IMU (I2C1)"]
+        DHT["DHT11 Sensor (GPIO)"]
+        POT["Potentiometer (ADC1)"]
+        UART_HW["ST-Link VCP (USART2 DMA)"]
+        WDT_HW["Hardware IWDG"]
     end
 
-    subgraph Driver & HAL Layer
-        I2C_DRV[I2C Driver + 9-Clock Recovery]
-        DHT_DRV[DHT11 Single-Wire Driver]
-        ADC_DRV[ADC Circular DMA Driver]
-        UART_DRV[UART RingBuffer + DMA TX]
+    subgraph Drivers_HAL["Driver & HAL Layer"]
+        I2C_DRV["I2C Driver + 9-Clock Recovery"]
+        DHT_DRV["DHT11 Single-Wire Driver"]
+        ADC_DRV["ADC Circular DMA Driver"]
+        UART_DRV["UART RingBuffer + DMA TX"]
     end
 
-    subgraph FreeRTOS Core & Tasks
-        T_MPU[Task MPU6050 - 100 Hz]
-        T_DHT[Task DHT11 - 0.5 Hz]
-        T_ADC[Task Analog/Pot - 50 Hz]
+    subgraph RTOS_Core["FreeRTOS Core & Tasks"]
+        T_MPU["Task MPU6050 (100 Hz)"]
+        T_DHT["Task DHT11 (0.5 Hz)"]
+        T_ADC["Task Analog/Pot (50 Hz)"]
         
-        Q_RAW[(Sensor Data Queue)]
+        Q_RAW[("Sensor Data Queue")]
         
-        T_PROC[Task Data Fusion & Processing - 50 Hz<br/>Complementary Filter | State Machine]
+        T_PROC["Task Data Fusion & Processing (50 Hz)<br>Complementary Filter, State Machine"]
         
-        Q_TELEM[(Telemetry Queue)]
+        Q_TELEM[("Telemetry Queue")]
         
-        T_GATEWAY[Task Gateway & Telemetry - 10 Hz<br/>JSON / ANSI / CSV Stream]
+        T_GATEWAY["Task Gateway & Telemetry (10 Hz)<br>JSON / ANSI / CSV Stream"]
         
-        T_CLI[Task CLI Shell - Event-driven<br/>Interactive Shell | Fault Injection]
+        T_CLI["Task CLI Shell (Event-driven)<br>Interactive Shell, Fault Injection"]
         
-        T_SUP[Task Supervisor - Priority 5<br/>Check-in Matrix | IWDG Refresh]
+        T_SUP["Task Supervisor (Priority 5)<br>Check-in Matrix, IWDG Refresh"]
     end
 
     MPU --> I2C_DRV --> T_MPU
@@ -86,11 +86,11 @@ graph TD
     
     UART_HW --> UART_DRV --> T_CLI
     
-    T_MPU -. Check-in .-> T_SUP
-    T_DHT -. Check-in .-> T_SUP
-    T_ADC -. Check-in .-> T_SUP
-    T_PROC -. Check-in .-> T_SUP
-    T_GATEWAY -. Check-in .-> T_SUP
+    T_MPU -.->|Check-in| T_SUP
+    T_DHT -.->|Check-in| T_SUP
+    T_ADC -.->|Check-in| T_SUP
+    T_PROC -.->|Check-in| T_SUP
+    T_GATEWAY -.->|Check-in| T_SUP
     T_SUP --> WDT_HW
 ```
 
@@ -118,7 +118,7 @@ graph TD
 | Task Name | Priority | Period / Rate | Stack Size | Primary IPC Mechanism | Responsibility |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **`Supervisor`** | 5 (Highest) | 200 ms | 256 words | Atomic bitmask | Verifies task check-in deadlines; kicks `IWDG`; toggles status LED. |
-| **`Processing`** | 4 | 20 ms (50 Hz) | 512 words | `sensor_queue` $\rightarrow$ `telemetry_queue` | Runs Complementary filter; calculates Roll/Pitch; updates state machine. |
+| **`Processing`** | 4 | 20 ms (50 Hz) | 512 words | `sensor_queue` → `telemetry_queue` | Runs Complementary filter; calculates Roll/Pitch; updates state machine. |
 | **`MPU6050`** | 4 | 10 ms (100 Hz) | 384 words | `sensor_queue` (send) | 14-byte burst read; checks WHO_AM_I; initiates I2C bus recovery if hung. |
 | **`ADC_Pot`** | 3 | 20 ms (50 Hz) | 256 words | `sensor_queue` (send) | Reads ADC1 circular DMA buffer; runs EWMA digital filter. |
 | **`Telemetry`** | 3 | 100 ms (10 Hz) | 512 words | `telemetry_queue` (recv) | Formats ANSI / JSON / CSV; triggers non-blocking UART DMA transmit. |

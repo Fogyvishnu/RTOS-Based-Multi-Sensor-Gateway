@@ -117,13 +117,14 @@ The DHT11 uses a single bidirectional data wire with open-collector signaling an
    - A subsequent HIGH pulse of **26–28 µs** represents bit `0`.
    - A subsequent HIGH pulse of **70 µs** represents bit `1`.
 5. **Implementation via DWT**: We use `DWT->CYCCNT` to sample high-pulse duration:
-   $$\text{duration} > 45\mu\text{s} \implies \text{bit } 1, \quad \text{otherwise } 0$$
+   - If pulse duration > 45 µs: bit `1`
+   - If pulse duration ≤ 45 µs: bit `0`
 
 ---
 
 ### ADC & DMA Circular Buffering
 - The potentiometer is connected to an analog pin (e.g. `PA0` / ADC1 Channel 5).
-- **12-bit SAR ADC**: Converts analog voltages ($0\text{ to }3.3\text{V}$) into digital values ($0\text{ to }4095$).
+- **12-bit SAR ADC**: Converts analog voltages (0 to 3.3V) into digital values (0 to 4095).
 - **DMA (Direct Memory Access)**:
   - Instead of generating CPU interrupts for every ADC conversion, DMA1 Channel 1 transfers samples continuously into an SRAM circular buffer.
   - The CPU is free to run RTOS tasks without servicing high-frequency ADC interrupts.
@@ -143,42 +144,50 @@ The DHT11 uses a single bidirectional data wire with open-collector signaling an
 ## 4. Sensor Fusion & Math Algorithms
 
 ### Why Sensor Fusion?
-- **Accelerometer**: Measures linear acceleration plus gravity. In static conditions, $\theta = \text{atan2}(a_y, a_z)$ provides an absolute tilt angle. However, vibrations and quick linear motions introduce high-frequency noise.
-- **Gyroscope**: Measures angular velocity ($\omega = \frac{d\theta}{dt}$). Integrating velocity ($\theta = \int \omega \, dt$) yields very smooth angles that ignore linear acceleration. However, bias errors integrate over time, causing continuous **drift**.
+- **Accelerometer**: Measures linear acceleration plus gravity. In static conditions, pitch and roll from accelerometer provide an absolute tilt angle. However, vibrations and quick linear motions introduce high-frequency noise.
+- **Gyroscope**: Measures angular velocity. Integrating velocity yields very smooth angles that ignore linear acceleration. However, bias errors integrate over time, causing continuous drift.
 - **Solution**: Combine the high-frequency response of the gyroscope with the low-frequency drift-free reference of the accelerometer.
 
 ### The Complementary Filter for Attitude Estimation
 The Complementary Filter applies a High-Pass Filter to the integrated gyro angle and a Low-Pass Filter to the accelerometer angle:
 
-$$\theta_{t} = \alpha \cdot \left(\theta_{t-1} + \omega_{gyro} \cdot \Delta t\right) + (1 - \alpha) \cdot \theta_{accel}$$
+```
+Angle(t) = α * (Angle(t-1) + GyroRate * Δt) + (1 - α) * AccelAngle
+```
 
 Where:
-- $\alpha \approx \frac{\tau}{\tau + \Delta t}$ (typically $0.96 \text{ to } 0.98$, where $\tau$ is the filter time constant).
-- $\Delta t$: Sampling period (e.g., $0.01\text{ s}$ for 100 Hz).
-- Roll ($\phi$) and Pitch ($\theta$) from accelerometer:
-  $$\text{Roll} = \text{atan2}(a_y, a_z) \cdot \frac{180^\circ}{\pi}$$
-  $$\text{Pitch} = \text{atan2}(-a_x, \sqrt{a_y^2 + a_z^2}) \cdot \frac{180^\circ}{\pi}$$
+- `α ≈ 0.98` (gyro trust weighting factor).
+- `Δt`: Sampling period (0.01 s for 100 Hz).
+- Roll and Pitch from accelerometer gravity vector:
+  - `Roll  = atan2(accel_y, accel_z) * (180° / π)`
+  - `Pitch = atan2(-accel_x, sqrt(accel_y² + accel_z²)) * (180° / π)`
 
 ---
 
 ### Dew Point & Heat Index Formulations
 
-#### 1. Dew Point ($T_{dp}$) via the Magnus Formula:
-$$\gamma(T, RH) = \frac{a \cdot T}{b + T} + \ln\left(\frac{RH}{100}\right)$$
-$$T_{dp} = \frac{b \cdot \gamma(T, RH)}{a - \gamma(T, RH)}$$
-Where constants are: $a = 17.27, \; b = 237.7^\circ\text{C}$.
+#### 1. Dew Point via the Magnus Formula:
+```
+α(T, RH) = ((17.27 * T) / (237.7 + T)) + ln(RH / 100)
+T_dew    = (237.7 * α(T, RH)) / (17.27 - α(T, RH))
+```
+Where constants are: `a = 17.27, b = 237.7°C`.
 
 #### 2. Heat Index (Feels-like Temperature):
-Based on the simplified Rothfusz regression equation:
-$$\text{HI} = 0.5 \cdot \left(T + 61.0 + ((T - 68.0) \cdot 1.2) + (RH \cdot 0.094)\right)$$
+Based on the simplified NOAA Rothfusz regression equation:
+```
+HI = 0.5 * (T + 61.0 + ((T - 68.0) * 1.2) + (RH * 0.094))
+```
 (Computed in Fahrenheit, then converted back to Celsius).
 
 ---
 
 ### Exponential Moving Average (EWMA) Filter
 For analog potentiometer readings:
-$$y[n] = \beta \cdot x[n] + (1 - \beta) \cdot y[n-1]$$
-- With $\beta = 0.2$, high-frequency ADC noise is smoothed out while preserving snappy response to knob turns.
+```
+y[n] = β * x[n] + (1 - β) * y[n-1]
+```
+- With `β = 0.20`, high-frequency ADC noise is smoothed out while preserving snappy response to knob turns.
 
 ---
 
