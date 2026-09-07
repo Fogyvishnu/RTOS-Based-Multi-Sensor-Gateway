@@ -1,0 +1,28 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up CMake & GCC
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake gcc g++
+
+    - name: Configure Host Unit Tests
+      run: cmake -B build-test -S tests
+
+    - name: Build Host Unit Tests
+      run: cmake --build build-test
+
+    - name: Execute CTest Unit Tests
+      run: ctest --test-dir build-test --output-on-failure
