@@ -2,8 +2,7 @@
 
 [![ARM Cortex-M4](https://img.shields.io/badge/CPU-ARM%20Cortex--M4%20%40%2080MHz-blue.svg)](https://www.st.com/en/microcontrollers-microprocessors/stm32l433rc.html)
 [![RTOS](https://img.shields.io/badge/RTOS-FreeRTOS-orange.svg)](https://www.freertos.org/)
-[![Hardware](https://img.shields.io/badge/Hardware-STM32%20Nucleo--L433RC--P-green.svg)](https://www.st.com/en/evaluation-tools/nucleo-l433rc-p.html)
-[![Unit Tests](https://img.shields.io/badge/Host%20Tests-Passing-brightgreen.svg)]()
+[![CI](https://github.com/Fogyvishnu/RTOS-Based-Multi-Sensor-Gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/Fogyvishnu/RTOS-Based-Multi-Sensor-Gateway/actions)
 [![License](https://img.shields.io/badge/License-MIT-purple.svg)]()
 
 An industrial-grade, fault-tolerant **Real-Time Multi-Sensor Gateway** developed for the **STM32 NUCLEO-L433RC-P** microcontroller using **FreeRTOS**. 
