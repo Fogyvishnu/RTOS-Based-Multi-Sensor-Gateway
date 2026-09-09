@@ -14,6 +14,8 @@ extern DMA_HandleTypeDef hdma_adc1;
 #endif
 
 #if defined(FREERTOS) || defined(INC_FREERTOS_H)
+#include "FreeRTOS.h"
+#include "task.h"
 extern void xPortSysTickHandler(void);
 #endif
 

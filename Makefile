@@ -1,76 +1,45 @@
 # Makefile for RTOS-Based Multi-Sensor Gateway (STM32L433RC-P)
 
-TARGET = rtos_gateway
-DEBUG = 1
-OPT = -Og
+# Shell configuration
+SHELL := /bin/bash
 
-BUILD_DIR = build
+# Target definitions
+.PHONY: all firmware flash monitor test clean help
 
-# C Sources
-C_SOURCES = \
-Core/Src/main.c \
-Core/Src/stm32l4xx_it.c \
-Drivers/BSP/bsp_nucleo_l433rc.c \
-Drivers/MPU6050/mpu6050.c \
-Drivers/DHT11/dht11.c \
-Drivers/Potentiometer/potentiometer.c \
-Middleware/RingBuffer/ring_buffer.c \
-App/Src/fault_manager.c \
-App/Src/sensor_fusion.c \
-App/Src/task_supervisor.c \
-App/Src/task_sensors.c \
-App/Src/task_processing.c \
-App/Src/task_telemetry.c \
-App/Src/task_cli.c
+# Default target: build firmware
+all: firmware
 
-# C Includes
-C_INCLUDES = \
--ICore/Inc \
--IDrivers/BSP \
--IDrivers/MPU6050 \
--IDrivers/DHT11 \
--IDrivers/Potentiometer \
--IMiddleware/RingBuffer \
--IApp/Inc
+# Build firmware using PlatformIO
+firmware:
+	pio run
 
-# Toolchain definitions
-PREFIX = arm-none-eabi-
-CC = $(PREFIX)gcc
-AS = $(PREFIX)gcc -x assembler-with-cpp
-CP = $(PREFIX)objcopy
-SZ = $(PREFIX)size
-HEX = $(CP) -O ihex
-BIN = $(CP) -O binary -S
+# Flash firmware to connected Nucleo board via ST-Link
+flash:
+	pio run --target upload
 
-# CPU & Architecture Flags (ARM Cortex-M4 with single-precision FPU)
-CPU = -mcpu=cortex-m4
-FPU = -mfpu=fpv4-sp-d16
-FLOAT-ABI = -mfloat-abi=hard
-MCU = $(CPU) -mthumb $(FPU) $(FLOAT-ABI)
+# Open serial monitor (115200 baud)
+monitor:
+	pio device monitor -b 115200
 
-# Compiler definitions
-C_DEFS = \
--DSTM32L433xx \
--DUSE_HAL_DRIVER \
--DFREERTOS
-
-CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
-ifeq ($(DEBUG), 1)
-CFLAGS += -g -gdwarf-2
-endif
-
-# Host Test Target
-.PHONY: test all clean flash
-
-all: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).hex $(BUILD_DIR)/$(TARGET).bin
-
+# Run host unit test suite on PC (CTest / CMake)
 test:
 	cmake -B build-test -S tests
 	cmake --build build-test
 	ctest --test-dir build-test --output-on-failure
 
+# Clean build directories
 clean:
-	rm -rf $(BUILD_DIR) build-test
+	pio run --target clean 2>/dev/null || true
+	rm -rf build build-test .pio
 
-flash: $(BUILD_DIR)/$(TARGET).bin
-	st-flash write $(BUILD_DIR)/$(TARGET).bin 0x08000000
+# Show help menu
+help:
+	@echo "=================================================================="
+	@echo " RTOS-Based Multi-Sensor Gateway - Build System"
+	@echo "=================================================================="
+	@echo "  make (or make firmware) : Compile embedded firmware with PlatformIO"
+	@echo "  make flash              : Upload firmware to STM32 Nucleo board"
+	@echo "  make monitor            : Open interactive serial monitor (115200)"
+	@echo "  make test               : Build and run host unit tests (CTest)"
+	@echo "  make clean              : Remove build and test output files"
+	@echo "=================================================================="

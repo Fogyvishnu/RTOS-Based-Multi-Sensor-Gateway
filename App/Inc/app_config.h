@@ -48,7 +48,7 @@ extern "C" {
 #define SENSOR_QUEUE_LEN            (16)
 #define TELEMETRY_QUEUE_LEN         (4)
 #define CLI_RX_BUFFER_SIZE          (128)
-#define UART_TX_DMA_BUFFER_SIZE     (1024)
+#define UART_TX_DMA_BUFFER_SIZE     (1536)
 
 /* ========================================================================== */
 /*                         Supervisor Alive Bitmask Flags                    */

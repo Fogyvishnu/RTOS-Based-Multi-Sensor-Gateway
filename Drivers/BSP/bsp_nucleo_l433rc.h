@@ -9,6 +9,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#if defined(STM32L433xx) || defined(USE_HAL_DRIVER)
+#include "stm32l4xx_hal.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif

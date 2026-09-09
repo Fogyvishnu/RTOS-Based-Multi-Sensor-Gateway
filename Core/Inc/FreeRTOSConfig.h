@@ -57,11 +57,22 @@ extern uint32_t SystemCoreClock;
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY     (configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << (8 - configPRIO_BITS))
 
 /* Critical nesting assert */
-#define configASSERT(x) if ((x) == 0) { taskDISABLE_INTERRUPTS(); for(;;); }
+/* Set the following definitions to 1 to include the API function, or zero
+to exclude the API function. */
+#define INCLUDE_vTaskPrioritySet             1
+#define INCLUDE_uxTaskPriorityGet            1
+#define INCLUDE_vTaskDelete                  1
+#define INCLUDE_vTaskCleanUpResources        0
+#define INCLUDE_vTaskSuspend                 1
+#define INCLUDE_vTaskDelayUntil              1
+#define INCLUDE_vTaskDelay                   1
+#define INCLUDE_xTaskGetSchedulerState       1
+#define INCLUDE_uxTaskGetStackHighWaterMark  1
+#define configUSE_STATS_FORMATTING_FUNCTIONS 1
 
 /* Map FreeRTOS port handlers to CMSIS standard vector names */
 #define vPortSVCHandler     SVC_Handler
 #define xPortPendSVHandler  PendSV_Handler
-#define xPortSysTickHandler SysTick_Handler
+/* Note: xPortSysTickHandler is called from SysTick_Handler in stm32l4xx_it.c */
 
 #endif /* FREERTOS_CONFIG_H */
