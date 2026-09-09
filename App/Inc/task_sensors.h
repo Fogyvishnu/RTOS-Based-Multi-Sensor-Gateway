@@ -10,6 +10,8 @@
 extern "C" {
 #endif
 
+#include "potentiometer.h"
+
 /**
  * @brief Initialize sensor queues and driver instances
  */
@@ -29,6 +31,11 @@ void Task_DHT11_Entry(void *argument);
  * @brief Potentiometer analog acquisition task (50 Hz)
  */
 void Task_ADC_Entry(void *argument);
+
+/**
+ * @brief Get pointer to active potentiometer handle
+ */
+PotentiometerHandle_t* task_sensors_get_pot_handle(void);
 
 #ifdef __cplusplus
 }

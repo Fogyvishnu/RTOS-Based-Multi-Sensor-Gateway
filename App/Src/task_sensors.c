@@ -40,6 +40,10 @@ void task_sensors_init(void) {
     potentiometer_init(&s_pot_handle);
 }
 
+PotentiometerHandle_t* task_sensors_get_pot_handle(void) {
+    return &s_pot_handle;
+}
+
 void Task_MPU6050_Entry(void *argument) {
     (void)argument;
     SensorPacket_t packet;

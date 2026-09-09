@@ -18,6 +18,9 @@ bool potentiometer_init(PotentiometerHandle_t *handle) {
     if (!handle) return false;
     handle->filtered_percentage = 0.0f;
     handle->last_raw = 0;
+    handle->raw_min = 900;   /* Default lower bound from physical wiper measurement */
+    handle->raw_max = 3250;  /* Default upper bound from physical wiper measurement */
+    handle->auto_calibrate = true;
     handle->is_initialized = true;
 
 #if defined(STM32L433xx) || defined(USE_HAL_DRIVER)
@@ -26,6 +29,26 @@ bool potentiometer_init(PotentiometerHandle_t *handle) {
 #endif
 
     return true;
+}
+
+void potentiometer_set_calibration(PotentiometerHandle_t *handle, uint16_t raw_min, uint16_t raw_max) {
+    if (!handle) return;
+    if (raw_min < raw_max) {
+        handle->raw_min = raw_min;
+        handle->raw_max = raw_max;
+    }
+}
+
+void potentiometer_enable_auto_calibration(PotentiometerHandle_t *handle, bool enable) {
+    if (!handle) return;
+    handle->auto_calibrate = enable;
+}
+
+void potentiometer_get_calibration(const PotentiometerHandle_t *handle, uint16_t *raw_min, uint16_t *raw_max, bool *auto_cal) {
+    if (!handle) return;
+    if (raw_min) *raw_min = handle->raw_min;
+    if (raw_max) *raw_max = handle->raw_max;
+    if (auto_cal) *auto_cal = handle->auto_calibrate;
 }
 
 bool potentiometer_read(PotentiometerHandle_t *handle, PotentiometerData_t *data) {
@@ -51,8 +74,26 @@ bool potentiometer_read(PotentiometerHandle_t *handle, PotentiometerData_t *data
         return false;
     }
 
+    /* Auto-calibrate bounds dynamically if wiper reaches beyond current window */
+    if (handle->auto_calibrate) {
+        if (data->raw_adc < handle->raw_min && data->raw_adc < 4000) {
+            handle->raw_min = data->raw_adc;
+        }
+        if (data->raw_adc > handle->raw_max && data->raw_adc <= 4095) {
+            handle->raw_max = data->raw_adc;
+        }
+    }
+
     data->voltage_v = ((float)data->raw_adc / POT_ADC_RESOLUTION) * VREF_VOLTS;
-    data->percentage = ((float)data->raw_adc / POT_ADC_RESOLUTION) * 100.0f;
+
+    /* Map [raw_min, raw_max] -> [0.0%, 100.0%] */
+    float span = (float)(handle->raw_max - handle->raw_min);
+    if (span < 10.0f) span = 10.0f;
+
+    float pct = ((float)data->raw_adc - (float)handle->raw_min) / span * 100.0f;
+    if (pct < 0.0f) pct = 0.0f;
+    if (pct > 100.0f) pct = 100.0f;
+    data->percentage = pct;
 
     /* Apply digital EWMA low-pass filter */
     handle->filtered_percentage = sensor_fusion_ewma(handle->filtered_percentage,

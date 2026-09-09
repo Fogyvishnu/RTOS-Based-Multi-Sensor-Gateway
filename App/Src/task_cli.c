@@ -8,6 +8,8 @@
 #include "fault_manager.h"
 #include "task_telemetry.h"
 #include "task_supervisor.h"
+#include "task_sensors.h"
+#include "potentiometer.h"
 #include "ring_buffer.h"
 #include "bsp_nucleo_l433rc.h"
 #include <stdio.h>
@@ -61,6 +63,8 @@ static void execute_command(char *cmd) {
             "  top                   Display FreeRTOS task stats & watermarks\r\n"
             "  inject <fault>        Inject fault: mpu, dht, pot, task, or none\r\n"
             "  clear                 Clear all injected faults\r\n"
+            "  cal pot [min max]     Show or set potentiometer calibration range\r\n"
+            "  cal auto <on|off>     Enable or disable dynamic auto-calibration\r\n"
             "  reboot                Trigger MCU software reset\r\n"
             "------------------------------\r\n"
         );
@@ -120,6 +124,41 @@ static void execute_command(char *cmd) {
     } else if (strcmp(cmd, "clear") == 0) {
         fault_inject_clear_all();
         cli_print("\r\n[CLEARED] All faults cleared\r\n");
+    } else if (strncmp(cmd, "cal", 3) == 0) {
+        PotentiometerHandle_t *pot = task_sensors_get_pot_handle();
+        if (pot) {
+            uint16_t rmin = 0, rmax = 0;
+            bool autocal = false;
+            potentiometer_get_calibration(pot, &rmin, &rmax, &autocal);
+
+            if (strcmp(cmd, "cal") == 0 || strcmp(cmd, "cal pot") == 0) {
+                snprintf(reply, sizeof(reply),
+                         "\r\n[POT CAL] Range: [%u - %u] (Span: %u), Auto-Cal: %s\r\n",
+                         (unsigned int)rmin, (unsigned int)rmax,
+                         (unsigned int)(rmax - rmin), autocal ? "ON" : "OFF");
+                cli_print(reply);
+            } else if (strncmp(cmd, "cal auto ", 9) == 0) {
+                char *arg = cmd + 9;
+                bool enable = (strcmp(arg, "on") == 0 || strcmp(arg, "1") == 0);
+                potentiometer_enable_auto_calibration(pot, enable);
+                snprintf(reply, sizeof(reply), "\r\n[OK] Potentiometer Auto-Calibration: %s\r\n",
+                         enable ? "ON" : "OFF");
+                cli_print(reply);
+            } else if (strncmp(cmd, "cal pot ", 8) == 0) {
+                unsigned int new_min = 0, new_max = 0;
+                if (sscanf(cmd + 8, "%u %u", &new_min, &new_max) == 2 && new_min < new_max && new_max <= 4095) {
+                    potentiometer_set_calibration(pot, (uint16_t)new_min, (uint16_t)new_max);
+                    snprintf(reply, sizeof(reply),
+                             "\r\n[OK] Potentiometer Calibration updated: [%u - %u]\r\n",
+                             new_min, new_max);
+                    cli_print(reply);
+                } else {
+                    cli_print("\r\n[ERR] Usage: cal pot <min_raw> <max_raw> (e.g. cal pot 900 3250)\r\n");
+                }
+            } else {
+                cli_print("\r\n[ERR] Options: cal pot, cal pot <min> <max>, cal auto <on|off>\r\n");
+            }
+        }
     } else if (strcmp(cmd, "reboot") == 0) {
         cli_print("\r\n[REBOOT] Initiating system reset...\r\n");
 #if defined(STM32L433xx) || defined(USE_HAL_DRIVER)

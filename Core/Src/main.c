@@ -231,9 +231,14 @@ static void MX_ADC1_Init(void) {
         Error_Handler();
     }
 
+    /* Calibrate ADC for single-ended conversions */
+    if (HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED) != HAL_OK) {
+        Error_Handler();
+    }
+
     sConfig.Channel = ADC_CHANNEL_5; /* PA0 */
     sConfig.Rank = ADC_REGULAR_RANK_1;
-    sConfig.SamplingTime = ADC_SAMPLETIME_47CYCLES_5;
+    sConfig.SamplingTime = ADC_SAMPLETIME_640CYCLES_5;
     if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
         Error_Handler();
     }
