@@ -52,14 +52,31 @@ void SysTick_Handler(void) {
 #endif
 }
 
+volatile uint32_t g_rx_count = 0;
+extern uint8_t g_rx_byte;
+
 void USART2_IRQHandler(void) {
 #if defined(STM32L433xx) || defined(USE_HAL_DRIVER)
-    /* Check RX Not Empty flag directly */
-    if (__HAL_UART_GET_FLAG(&huart2, UART_FLAG_RXNE)) {
-        uint8_t ch = (uint8_t)(huart2.Instance->RDR & 0xFF);
-        task_cli_on_rx_byte(ch);
-    }
     HAL_UART_IRQHandler(&huart2);
+#endif
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+#if defined(STM32L433xx) || defined(USE_HAL_DRIVER)
+    if (huart->Instance == USART2) {
+        g_rx_count++;
+        task_cli_on_rx_byte(g_rx_byte);
+        HAL_UART_Receive_IT(&huart2, &g_rx_byte, 1);
+    }
+#endif
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+#if defined(STM32L433xx) || defined(USE_HAL_DRIVER)
+    if (huart->Instance == USART2) {
+        __HAL_UART_CLEAR_FLAG(&huart2, UART_CLEAR_OREF | UART_CLEAR_NEF | UART_CLEAR_FEF | UART_CLEAR_PEF);
+        HAL_UART_Receive_IT(&huart2, &g_rx_byte, 1);
+    }
 #endif
 }
 

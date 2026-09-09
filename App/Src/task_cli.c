@@ -136,7 +136,11 @@ void Task_CLI_Entry(void *argument) {
     uint8_t ch = 0;
 
     task_cli_init();
-    cli_print("\r\nGateway CLI Ready. Type 'help' for command list.\r\nCLI> ");
+    cli_print("\r\n======================================================\r\n"
+              "   STM32 NUCLEO-L433RC-P FreeRTOS Sensor Gateway      \r\n"
+              "   Status: RUNNING | Baud: 115200 | Type 'help'       \r\n"
+              "======================================================\r\n"
+              "CLI> ");
 
     for (;;) {
         while (ring_buffer_pop(&s_cli_rb, &ch)) {
@@ -145,10 +149,12 @@ void Task_CLI_Entry(void *argument) {
             cli_print(echo);
 
             if (ch == '\r' || ch == '\n') {
-                s_line_buf[s_line_idx] = '\0';
-                execute_command(s_line_buf);
-                s_line_idx = 0;
-                cli_print("CLI> ");
+                if (s_line_idx > 0) {
+                    s_line_buf[s_line_idx] = '\0';
+                    execute_command(s_line_buf);
+                    s_line_idx = 0;
+                    cli_print("CLI> ");
+                }
             } else if (ch == '\b' || ch == 127) {
                 /* Backspace */
                 if (s_line_idx > 0) {

@@ -6,6 +6,7 @@
 #include "mpu6050.h"
 #include "app_config.h"
 #include "fault_manager.h"
+#include "bsp_nucleo_l433rc.h"
 
 #if defined(STM32L433xx) || defined(USE_HAL_DRIVER)
 #include "stm32l4xx_hal.h"
@@ -34,6 +35,7 @@ bool mpu6050_init(Mpu6050Handle_t *handle) {
     }
 
 #if defined(STM32L433xx) || defined(USE_HAL_DRIVER)
+    bsp_delay_us(30000); /* Allow MPU6050 internal power-on reset to stabilize (DWT cycle delay) */
     uint8_t who_am_i = 0;
     HAL_StatusTypeDef status;
 
@@ -143,6 +145,7 @@ bool mpu6050_read_all(Mpu6050Handle_t *handle, Mpu6050Data_t *data) {
 
     data->valid = true;
     fault_manager_clear(FAULT_MPU6050_COMM_TIMEOUT);
+    fault_manager_clear(FAULT_MPU6050_WHO_AM_I);
     return true;
 }
 

@@ -8,6 +8,13 @@
 #if defined(STM32L433xx) || defined(USE_HAL_DRIVER)
 #include "stm32l4xx_hal.h"
 extern UART_HandleTypeDef huart2;
+
+#if defined(FREERTOS) || defined(INC_FREERTOS_H)
+#include "FreeRTOS.h"
+#include "semphr.h"
+#include "task.h"
+static SemaphoreHandle_t s_uart_mutex = NULL;
+#endif
 #endif
 
 void bsp_init(void) {
@@ -34,6 +41,12 @@ void bsp_init(void) {
 
     /* Initialize DWT cycle counter */
     bsp_dwt_init();
+
+#if (defined(FREERTOS) || defined(INC_FREERTOS_H))
+    if (!s_uart_mutex) {
+        s_uart_mutex = xSemaphoreCreateMutex();
+    }
+#endif
 #endif
 }
 
@@ -84,7 +97,17 @@ bool bsp_button_is_pressed(void) {
 bool bsp_uart_send_dma(const uint8_t *data, uint16_t len) {
     if (!data || len == 0) return false;
 #if defined(STM32L433xx) || defined(USE_HAL_DRIVER)
-    return (HAL_UART_Transmit_DMA(&huart2, (uint8_t*)data, len) == HAL_OK);
+#if (defined(FREERTOS) || defined(INC_FREERTOS_H))
+    if (s_uart_mutex && xTaskGetSchedulerState() == taskSCHEDULER_RUNNING) {
+        if (xSemaphoreTake(s_uart_mutex, pdMS_TO_TICKS(500)) == pdTRUE) {
+            HAL_StatusTypeDef res = HAL_UART_Transmit(&huart2, (uint8_t*)data, len, 500);
+            xSemaphoreGive(s_uart_mutex);
+            return (res == HAL_OK);
+        }
+        return false;
+    }
+#endif
+    return (HAL_UART_Transmit(&huart2, (uint8_t*)data, len, 500) == HAL_OK);
 #else
     (void)data;
     (void)len;

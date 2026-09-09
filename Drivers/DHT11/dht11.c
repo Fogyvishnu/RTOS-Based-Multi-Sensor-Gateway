@@ -59,7 +59,7 @@ bool dht11_read(Dht11Handle_t *handle, Dht11Data_t *data) {
     /* 1. Send Start Signal: Pull Low for 18 ms */
     set_pin_output(port, pin);
     HAL_GPIO_WritePin(port, pin, GPIO_PIN_RESET);
-    HAL_Delay(18);
+    bsp_delay_us(18000);
 
     /* 2. Pull High for 30 us and switch to Input */
     HAL_GPIO_WritePin(port, pin, GPIO_PIN_SET);

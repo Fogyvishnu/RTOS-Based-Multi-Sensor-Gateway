@@ -24,6 +24,7 @@ static void vTaskDelay(TickType_t t) { (void)t; }
 #endif
 
 static volatile uint32_t s_alive_flags = 0;
+static uint32_t s_telemetry_missed_count = 0;
 
 void task_supervisor_check_in(uint32_t alive_bit) {
     s_alive_flags |= alive_bit;
@@ -33,14 +34,39 @@ void Task_Supervisor_Entry(void *argument) {
     (void)argument;
     uint32_t tick_count = 0;
 
+#if defined(STM32L433xx) || defined(USE_HAL_DRIVER)
+    /* Initialize Independent Watchdog once scheduler is running */
+    extern void MX_IWDG_Init(void);
+    MX_IWDG_Init();
+#endif
+
     for (;;) {
 #if defined(FREERTOS) || defined(INC_FREERTOS_H)
         vTaskDelay(pdMS_TO_TICKS(PERIOD_MS_SUPERVISOR));
 #endif
         tick_count++;
 
-        /* 1. Evaluate whether all critical tasks checked in */
-        bool all_healthy = ((s_alive_flags & ALIVE_BITS_ALL_CRITICAL) == ALIVE_BITS_ALL_CRITICAL);
+        /* In startup grace period (first 5 epochs = ~1000ms), only feed watchdog to let tasks initialize */
+        if (tick_count < 5) {
+#if defined(STM32L433xx) || defined(USE_HAL_DRIVER)
+            HAL_IWDG_Refresh(&hiwdg);
+#endif
+            s_alive_flags = 0;
+            continue;
+        }
+
+        /* 1. Evaluate whether fast critical tasks (100Hz/50Hz) checked in */
+        bool fast_healthy = ((s_alive_flags & ALIVE_BITS_ALL_CRITICAL) == ALIVE_BITS_ALL_CRITICAL);
+
+        /* Telemetry checks in every 500ms; allow up to 1400ms (7 epochs @ 200ms) */
+        if (s_alive_flags & ALIVE_BIT_TELEMETRY) {
+            s_telemetry_missed_count = 0;
+        } else {
+            s_telemetry_missed_count++;
+        }
+        bool telemetry_healthy = (s_telemetry_missed_count <= 7);
+
+        bool all_healthy = fast_healthy && telemetry_healthy;
 
         if (!all_healthy) {
             /* At least one critical task missed its execution window */

@@ -38,7 +38,7 @@ extern "C" {
 #define PERIOD_MS_MPU6050           (10)   /**< 100 Hz */
 #define PERIOD_MS_ADC               (20)   /**< 50 Hz */
 #define PERIOD_MS_PROCESSING        (20)   /**< 50 Hz */
-#define PERIOD_MS_TELEMETRY         (100)  /**< 10 Hz */
+#define PERIOD_MS_TELEMETRY         (500)  /**< 2 Hz for smooth ANSI terminal without UART saturation */
 #define PERIOD_MS_SUPERVISOR        (200)  /**< 5 Hz */
 #define PERIOD_MS_DHT11             (2000) /**< 0.5 Hz */
 
@@ -62,8 +62,7 @@ extern "C" {
 
 #define ALIVE_BITS_ALL_CRITICAL     (ALIVE_BIT_MPU6050 | \
                                      ALIVE_BIT_ADC | \
-                                     ALIVE_BIT_PROCESSING | \
-                                     ALIVE_BIT_TELEMETRY)
+                                     ALIVE_BIT_PROCESSING)
 
 /* ========================================================================== */
 /*                       Sensor Fusion & Filtering Constants                 */

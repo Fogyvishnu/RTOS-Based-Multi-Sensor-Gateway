@@ -4,6 +4,7 @@
  */
 
 #include "task_telemetry.h"
+#include "task_processing.h"
 #include "app_config.h"
 #include "fault_manager.h"
 #include "task_supervisor.h"
@@ -22,9 +23,11 @@ extern QueueHandle_t g_telemetry_queue;
 typedef uint32_t TickType_t;
 #define pdMS_TO_TICKS(x) (x)
 #define pdTRUE 1
-static int xQueueReceive(QueueHandle_t q, void *p, TickType_t t) { (void)q; (void)p; (void)t; return 0; }
+static inline uint32_t xTaskGetTickCount(void) { return 0; }
+static inline void vTaskDelayUntil(TickType_t *pxPreviousWakeTime, TickType_t xTimeIncrement) { (void)pxPreviousWakeTime; (void)xTimeIncrement; }
 #endif
 
+extern volatile uint32_t g_rx_count;
 static TelemetryMode_t s_telemetry_mode = TELEMETRY_MODE_ANSI;
 static char s_tx_buffer[UART_TX_DMA_BUFFER_SIZE];
 
@@ -120,7 +123,7 @@ static int format_ansi_dashboard(char *out, size_t max_len, const GatewayTelemet
         "       STM32L433 REAL-TIME MULTI-SENSOR GATEWAY (FreeRTOS ARM Cortex-M4)       \r\n"
         "================================================================================\r\n"
         " State: %s[%s]\x1b[0m  | Uptime: %02u:%02u:%02u | Heap Free: %u B | Faults: 0x%04X\r\n"
-        " Watchdog: \x1b[1;32m[ARMED]\x1b[0m | I2C Bus Recoveries: %u\r\n"
+        " Watchdog: \x1b[1;32m[ARMED]\x1b[0m | I2C Recov: %u | Rx Bytes: %u\r\n"
         "--------------------------------------------------------------------------------\r\n"
         " [MPU6050] Accel (g):   X:%+0.2f  Y:%+0.2f  Z:%+0.2f | Status: %s\r\n"
         "           Gyro (dps):  X:%+0.1f  Y:%+0.1f  Z:%+0.1f | Die Temp: %.1f C\r\n"
@@ -138,6 +141,7 @@ static int format_ansi_dashboard(char *out, size_t max_len, const GatewayTelemet
         (unsigned int)hours, (unsigned int)mins, (unsigned int)secs,
         (unsigned int)t->free_heap_bytes, t->active_faults,
         (unsigned int)t->i2c_recovery_count,
+        (unsigned int)g_rx_count,
         t->mpu.accel_g[0], t->mpu.accel_g[1], t->mpu.accel_g[2],
         t->mpu.valid ? "OK" : "\x1b[1;31mERR\x1b[0m",
         t->mpu.gyro_dps[0], t->mpu.gyro_dps[1], t->mpu.gyro_dps[2],
@@ -183,25 +187,27 @@ static int format_csv(char *out, size_t max_len, const GatewayTelemetry_t *t) {
 void Task_Telemetry_Entry(void *argument) {
     (void)argument;
     GatewayTelemetry_t telem;
+#if defined(FREERTOS) || defined(INC_FREERTOS_H)
+    TickType_t last_wake_time = xTaskGetTickCount();
+#endif
 
     for (;;) {
 #if defined(FREERTOS) || defined(INC_FREERTOS_H)
-        if (xQueueReceive(g_telemetry_queue, &telem, pdMS_TO_TICKS(PERIOD_MS_TELEMETRY)) == pdTRUE) {
-#else
-        if (0) {
+        vTaskDelayUntil(&last_wake_time, pdMS_TO_TICKS(PERIOD_MS_TELEMETRY));
 #endif
-            int len = 0;
-            if (s_telemetry_mode == TELEMETRY_MODE_ANSI) {
-                len = format_ansi_dashboard(s_tx_buffer, sizeof(s_tx_buffer), &telem);
-            } else if (s_telemetry_mode == TELEMETRY_MODE_JSON) {
-                len = format_json(s_tx_buffer, sizeof(s_tx_buffer), &telem);
-            } else {
-                len = format_csv(s_tx_buffer, sizeof(s_tx_buffer), &telem);
-            }
+        task_processing_get_latest_telemetry(&telem);
 
-            if (len > 0) {
-                bsp_uart_send_dma((const uint8_t*)s_tx_buffer, (uint16_t)len);
-            }
+        int len = 0;
+        if (s_telemetry_mode == TELEMETRY_MODE_ANSI) {
+            len = format_ansi_dashboard(s_tx_buffer, sizeof(s_tx_buffer), &telem);
+        } else if (s_telemetry_mode == TELEMETRY_MODE_JSON) {
+            len = format_json(s_tx_buffer, sizeof(s_tx_buffer), &telem);
+        } else {
+            len = format_csv(s_tx_buffer, sizeof(s_tx_buffer), &telem);
+        }
+
+        if (len > 0) {
+            bsp_uart_send_dma((const uint8_t*)s_tx_buffer, (uint16_t)len);
         }
 
         /* Report healthy check-in to supervisor */

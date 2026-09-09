@@ -36,6 +36,7 @@ I2C_HandleTypeDef hi2c1;
 ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 IWDG_HandleTypeDef hiwdg;
+uint8_t g_rx_byte = 0;
 
 static void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
@@ -43,7 +44,7 @@ static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_ADC1_Init(void);
-static void MX_IWDG_Init(void);
+void MX_IWDG_Init(void);
 #endif
 
 int main(void) {
@@ -60,13 +61,14 @@ int main(void) {
     MX_USART2_UART_Init();
     MX_I2C1_Init();
     MX_ADC1_Init();
-    MX_IWDG_Init();
+    /* Note: MX_IWDG_Init is called inside Task_Supervisor to allow clean RTOS boot */
 #endif
 
     /* Initialize BSP and Fault Management Subsystems */
     bsp_init();
     fault_manager_init();
     task_sensors_init();
+    task_cli_init();
 
 #if defined(FREERTOS) || defined(INC_FREERTOS_H)
     /* Create Inter-Task Communication Queues */
@@ -123,6 +125,10 @@ void Error_Handler(void) {
 static void SystemClock_Config(void) {
     RCC_OscInitTypeDef RCC_OscInitStruct = {0};
     RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+    RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+
+    /* Enable Power Control clock */
+    __HAL_RCC_PWR_CLK_ENABLE();
 
     if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK) {
         Error_Handler();
@@ -154,6 +160,15 @@ static void SystemClock_Config(void) {
     if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK) {
         Error_Handler();
     }
+
+    /* Configure peripheral clocks for USART2, I2C1, ADC1 */
+    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART2 | RCC_PERIPHCLK_I2C1 | RCC_PERIPHCLK_ADC;
+    PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
+    PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_PCLK1;
+    PeriphClkInit.AdcClockSelection = RCC_ADCCLKSOURCE_SYSCLK;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK) {
+        Error_Handler();
+    }
 }
 
 static void MX_GPIO_Init(void) {
@@ -165,12 +180,11 @@ static void MX_GPIO_Init(void) {
 static void MX_DMA_Init(void) {
     __HAL_RCC_DMA1_CLK_ENABLE();
 
-    /* DMA1 Channel 1 for ADC1 */
-    HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 5, 0);
-    HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+    /* Note: DMA1_Channel1 (ADC) runs in circular mode without CPU interrupts
+     * to prevent CPU starvation from continuous 12-bit conversions. */
 
     /* DMA1 Channel 7 for USART2 TX */
-    HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 5, 0);
+    HAL_NVIC_SetPriority(DMA1_Channel7_IRQn, 6, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel7_IRQn);
 }
 
@@ -186,6 +200,8 @@ static void MX_USART2_UART_Init(void) {
     if (HAL_UART_Init(&huart2) != HAL_OK) {
         Error_Handler();
     }
+    /* Start interrupt-driven reception for 1 byte */
+    HAL_UART_Receive_IT(&huart2, &g_rx_byte, 1);
 }
 
 static void MX_I2C1_Init(void) {
@@ -223,7 +239,7 @@ static void MX_ADC1_Init(void) {
     }
 }
 
-static void MX_IWDG_Init(void) {
+void MX_IWDG_Init(void) {
     /* LSI = 32 kHz. Prescaler 32 -> 1 kHz (1 ms per tick). Reload = 1500 -> 1.5s */
     hiwdg.Instance = IWDG;
     hiwdg.Init.Prescaler = IWDG_PRESCALER_32;

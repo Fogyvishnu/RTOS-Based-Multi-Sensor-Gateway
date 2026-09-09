@@ -32,7 +32,13 @@ static GatewayTelemetry_t s_latest_telemetry;
 
 void task_processing_get_latest_telemetry(GatewayTelemetry_t *telem) {
     if (telem) {
+#if defined(FREERTOS) || defined(INC_FREERTOS_H)
+        taskENTER_CRITICAL();
+#endif
         memcpy(telem, &s_latest_telemetry, sizeof(GatewayTelemetry_t));
+#if defined(FREERTOS) || defined(INC_FREERTOS_H)
+        taskEXIT_CRITICAL();
+#endif
     }
 }
 
@@ -94,10 +100,6 @@ void Task_Processing_Entry(void *argument) {
         s_latest_telemetry.free_heap_bytes = (uint32_t)xPortGetFreeHeapSize();
 #endif
 
-        /* Send consolidated telemetry packet to Telemetry Gateway queue */
-        if (g_telemetry_queue) {
-            xQueueSend(g_telemetry_queue, &s_latest_telemetry, 0);
-        }
 
         /* Report healthy check-in to supervisor */
         task_supervisor_check_in(ALIVE_BIT_PROCESSING);

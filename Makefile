@@ -2,6 +2,7 @@
 
 # Shell configuration
 SHELL := /bin/bash
+export PATH := $(HOME)/.local/bin:$(PATH)
 
 # Target definitions
 .PHONY: all firmware flash monitor test clean help

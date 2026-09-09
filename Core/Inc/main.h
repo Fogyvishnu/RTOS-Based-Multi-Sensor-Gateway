@@ -22,8 +22,11 @@ extern "C" {
 #include "fault_manager.h"
 #include "bsp_nucleo_l433rc.h"
 
-/* Error Handler declaration */
+/* Error Handler and Watchdog declarations */
 void Error_Handler(void);
+#if defined(STM32L433xx) || defined(USE_HAL_DRIVER)
+void MX_IWDG_Init(void);
+#endif
 
 #ifdef __cplusplus
 }
